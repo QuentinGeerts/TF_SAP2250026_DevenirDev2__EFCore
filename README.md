@@ -14,7 +14,9 @@
 6. [Configurer les entités avec Fluent API](#6-configurer-les-entités-avec-fluent-api)
 7. [Les Migrations](#7-les-migrations)
 8. [Le Seed Data](#8-le-seed-data)
-9. [Récapitulatif de l'architecture](#9-récapitulatif-de-larchitecture)
+9. [Les opérations CRUD](#9-les-opérations-crud)
+10. [Le point d'entrée et le menu console](#10-le-point-dentrée-et-le-menu-console)
+11. [Récapitulatif de l'architecture](#11-récapitulatif-de-larchitecture)
 
 ---
 
@@ -105,10 +107,10 @@ namespace DemoEFCore.Entities;
 
 public class Film
 {
-    public Guid Id { get; set; }          // Clé primaire
+    public Guid Id { get; set; }            // Clé primaire
     public string Title { get; set; } = null!;
     public int ReleasedYear { get; set; }
-    public DateTime CreatedAt { get; set; }
+    public DateTime? CreatedAt { get; set; } // Nullable → valeur par défaut gérée côté SQL
 }
 ```
 
@@ -143,6 +145,7 @@ public class User
 
 - **`= null!`** : Indique au compilateur que la propriété sera initialisée par EF Core (évite les warnings `nullable`), tout en gardant la propriété *required* en base.
 - **`string?`** (avec `?`) : La propriété est nullable en C# **et** en base de données.
+- **`DateTime?`** : Le `?` rend le type valeur nullable. Ici, `CreatedAt` est nullable côté C# car sa valeur par défaut est générée côté SQL Server via `GETDATE()`. On n'a pas besoin de la fournir à la création d'un objet `Film`.
 - **`Guid` comme clé primaire** : EF Core génère automatiquement un GUID si la propriété s'appelle `Id` ou `<NomClasse>Id` (convention).
 
 ---
@@ -160,7 +163,6 @@ Le `DbContext` est la **classe centrale** d'EF Core. Il représente une **sessio
 ### Implémentation
 
 ```csharp
-using DemoEFCore.Configurations;
 using DemoEFCore.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -341,47 +343,51 @@ Les migrations permettent de **versionner** le schéma de la base de données, e
 
 ```bash
 # Créer une migration (génère les fichiers dans le dossier Migrations/)
-dotnet ef migrations add NomDeLaMigration
-Add-Migration NomDeLaMigration
+dotnet ef migrations add NomDeLaMigration       # CLI .NET
+Add-Migration NomDeLaMigration                  # Package Manager Console (Visual Studio)
 
 # Appliquer les migrations en attente à la base de données
-dotnet ef database update
-Update-Database
+dotnet ef database update                       # CLI .NET
+Update-Database                                 # Package Manager Console
 
 # Annuler la dernière migration (si elle n'a pas été appliquée)
-dotnet ef migrations remove
-Remove-Migration
+dotnet ef migrations remove                     # CLI .NET
+Remove-Migration                                # Package Manager Console
 
 # Revenir à une migration spécifique
-dotnet ef database update NomDeLaMigration
-Update-Database NomDeLaMigration
+dotnet ef database update NomDeLaMigration      # CLI .NET
+Update-Database NomDeLaMigration                # Package Manager Console
 ```
 
 ### Migrations du projet
 
-**Migration 1 — `InitialMigration`** : Crée les trois tables `Directors`, `Films` et `Users` avec leurs colonnes de base.
+**Migration 1 — `InitialMigration`** : Crée les trois tables `Directors`, `Films` et `Users` avec leurs colonnes de base (sans configurations, types par défaut `NVARCHAR(MAX)`, pas de contraintes).
 
 ```
 dotnet ef migrations add InitialMigration
 dotnet ef database update
 ```
 
-**Migration 2 — `FilmConfiguration`** : Ajoute la colonne `CreatedAt` à la table `Films` (car elle a été ajoutée à l'entité `Film` et configurée avec `HasDefaultValueSql`).
+**Migration 2 — `AddConfigurations`** : Applique toutes les configurations Fluent API et le seed data. Cette migration contient beaucoup de changements car les configurations n'existaient pas encore lors de la première migration :
+
+- **`Directors`** : `Lastname` et `Firstname` passent de `NVARCHAR(MAX)` à `NVARCHAR(50)`
+- **`Films`** : `Title` passe à `NVARCHAR(100)`, ajout de la colonne `CreatedAt` avec valeur par défaut `GETDATE()`, ajout de la contrainte `CHECK` sur `ReleasedYear`, insertion des 20 films (seed data)
+- **`Users`** : `Email` passe à `NVARCHAR(250)`, `Lastname`/`Firstname` à `NVARCHAR(50)`, ajout de la contrainte `CHECK` sur le format email
 
 ```
-dotnet ef migrations add FilmConfiguration
+dotnet ef migrations add AddConfigurations
 dotnet ef database update
 ```
 
 ### Fichiers générés par une migration
 
-Chaque migration produit **trois fichiers** (ou met à jour le snapshot) :
+Chaque migration produit **deux fichiers** et met à jour le snapshot :
 
 | Fichier | Rôle |
 |---------|------|
 | `YYYYMMDD_NomMigration.cs` | Le code `Up()` / `Down()` qui décrit les changements |
 | `YYYYMMDD_NomMigration.Designer.cs` | Snapshot du modèle complet **au moment de cette migration** |
-| `DataContextModelSnapshot.cs` | Snapshot du modèle **actuel** (mis à jour à chaque migration) |
+| `DataContextModelSnapshot.cs` | Snapshot du modèle **actuel** (mis à jour à chaque nouvelle migration) |
 
 ---
 
@@ -424,7 +430,170 @@ builder.HasData(
 
 ---
 
-## 9. Récapitulatif de l'architecture
+## 9. Les opérations CRUD
+
+### Théorie — Qu'est-ce que le CRUD ?
+
+Le **CRUD** désigne les quatre opérations fondamentales pour manipuler des données :
+
+| Lettre | Opération | SQL équivalent | Méthode EF Core |
+|--------|-----------|---------------|-----------------|
+| **C** | Create | `INSERT` | `context.Films.Add(film)` |
+| **R** | Read | `SELECT` | `context.Films.Where(...)`, `context.Films.FirstOrDefault(...)` |
+| **U** | Update | `UPDATE` | Modifier les propriétés d'un objet suivi |
+| **D** | Delete | `DELETE` | `context.Films.Remove(film)` |
+
+### Théorie — Le Change Tracking
+
+EF Core utilise un mécanisme de **Change Tracking** (suivi des modifications). Quand on récupère une entité depuis la base de données, EF Core la « suit ». Toute modification de ses propriétés est détectée automatiquement. L'appel à `SaveChanges()` génère alors les requêtes SQL correspondantes (`INSERT`, `UPDATE`, `DELETE`) et les exécute en base.
+
+### Create — Ajouter un film
+
+```csharp
+// 1. Créer l'objet C#
+Film film = new Film
+{
+    Title = title,
+    ReleasedYear = releasedYear
+};
+
+// 2. Ajouter à la collection (EF Core le marque comme "Added")
+context.Films.Add(film);
+
+// 3. Sauvegarder → génère un INSERT en SQL
+context.SaveChanges();
+```
+
+Le `Id` (GUID) est généré automatiquement par EF Core. Le `CreatedAt` est rempli par SQL Server grâce à `GETDATE()` (configuré via `HasDefaultValueSql`). On n'a pas besoin de fournir ces valeurs.
+
+### Read — Lire les données
+
+**Récupérer tous les films (triés par année décroissante) :**
+
+```csharp
+IQueryable<Film> films = context.Films
+    .Select(f => f)
+    .OrderByDescending(f => f.ReleasedYear);
+
+foreach (Film film in films)
+{
+    Console.WriteLine($" - {film.Title.PadRight(50)} sorti en {film.ReleasedYear}");
+}
+```
+
+**Rechercher un film par titre :**
+
+```csharp
+var film = context.Films
+    .Where(f => f.Title == title)
+    .FirstOrDefault();
+
+if (film != null)
+{
+    Console.WriteLine($"Film trouvé: {film.Title} {film.CreatedAt}");
+}
+else
+{
+    Console.WriteLine($"Aucun film trouvé sous le nom de '{title}'");
+}
+```
+
+### Théorie — `IQueryable` vs `IEnumerable`
+
+| Type | Exécution | Utilisation |
+|------|-----------|-------------|
+| **`IQueryable<T>`** | **Différée** — la requête SQL n'est exécutée que lorsqu'on itère (dans le `foreach`, ou lors d'un appel à `ToList()`, `FirstOrDefault()`, etc.) | Requêtes vers la base de données |
+| **`IEnumerable<T>`** | **En mémoire** — tout est déjà chargé en mémoire | Collections C# classiques |
+
+L'avantage d'`IQueryable` est qu'EF Core peut **composer** la requête : les filtres (`Where`), tris (`OrderBy`), projections (`Select`) sont traduits en SQL et exécutés côté serveur, ce qui est bien plus performant que de tout charger en mémoire.
+
+### Théorie — Les méthodes LINQ courantes avec EF Core
+
+| Méthode LINQ | SQL généré | Rôle |
+|-------------|-----------|------|
+| `Where(f => ...)` | `WHERE ...` | Filtrer les résultats |
+| `OrderBy(f => ...)` / `OrderByDescending` | `ORDER BY ...` | Trier les résultats |
+| `Select(f => ...)` | `SELECT ...` | Projeter (choisir les colonnes) |
+| `FirstOrDefault(f => ...)` | `SELECT TOP 1 ...` | Récupérer le premier résultat ou `null` |
+| `ToList()` | Exécute la requête | Matérialiser en `List<T>` |
+| `Count()` | `SELECT COUNT(*)` | Compter les résultats |
+
+### Update et Delete (à venir)
+
+Les opérations Update et Delete suivent le même principe : on récupère l'entité, on la modifie ou on appelle `Remove()`, puis on appelle `SaveChanges()`.
+
+```csharp
+// UPDATE — Modifier un film existant
+var film = context.Films.FirstOrDefault(f => f.Title == "Inception");
+if (film != null)
+{
+    film.Title = "Inception (2010)";   // EF Core détecte la modification
+    context.SaveChanges();              // → génère un UPDATE
+}
+
+// DELETE — Supprimer un film
+var film = context.Films.FirstOrDefault(f => f.Title == "Inception");
+if (film != null)
+{
+    context.Films.Remove(film);         // EF Core le marque comme "Deleted"
+    context.SaveChanges();              // → génère un DELETE
+}
+```
+
+---
+
+## 10. Le point d'entrée et le menu console
+
+### Le `Program.cs`
+
+Le point d'entrée de l'application crée une instance du `DataContext` et lance le menu interactif :
+
+```csharp
+using DemoEFCore;
+
+using DataContext context = new DataContext();
+
+Menu.AfficherMenu(context);
+```
+
+Le mot-clé `using` devant la déclaration assure que le `DataContext` sera **disposé** (libéré) automatiquement à la fin du programme. Le `DbContext` implémente `IDisposable` car il gère une connexion à la base de données qu'il faut fermer proprement.
+
+### La classe `Menu`
+
+La classe `Menu` est une classe `static` qui organise l'interface console en sous-menus imbriqués :
+
+```
+Menu principal
+├── 1. Démonstrations sur le CRUD
+│   ├── 1. Create — Ajouter un film
+│   ├── 2. Read — Récupérer des données
+│   │   ├── 1. Afficher tous les films
+│   │   └── 2. Rechercher un film par titre
+│   ├── 3. Update — (à implémenter)
+│   └── 4. Delete — (à implémenter)
+└── 0. Quitter
+```
+
+### Théorie — Le pattern de boucle interactive
+
+Le menu utilise un pattern classique pour les applications console : une boucle `while` avec un booléen de contrôle.
+
+```csharp
+bool continuer = true;
+while (continuer)
+{
+    // 1. Afficher les options
+    // 2. Lire le choix de l'utilisateur
+    // 3. Exécuter l'action correspondante (switch)
+    // 4. Le choix "0" met continuer = false pour sortir
+}
+```
+
+Ce pattern est répété à chaque niveau de menu, ce qui permet de revenir au menu parent en sortant simplement de la boucle.
+
+---
+
+## 11. Récapitulatif de l'architecture
 
 ```
 DemoEFCore/
@@ -438,9 +607,10 @@ DemoEFCore/
 │   └── UserConfiguration.cs
 ├── Migrations/                  # Historique versionné du schéma BDD
 │   ├── 20260225..._InitialMigration.cs
-│   ├── 20260225..._FilmConfiguration.cs
+│   ├── 20260226..._AddConfigurations.cs
 │   └── DataContextModelSnapshot.cs
 ├── DataContext.cs               # Le DbContext (point d'entrée EF Core)
+├── Menu.cs                      # Interface console interactive (CRUD)
 ├── Program.cs                   # Point d'entrée de l'application
 └── DemoEFCore.csproj            # Configuration du projet .NET
 ```
@@ -456,7 +626,9 @@ DemoEFCore/
         ↓
 4. Appliquer à la BDD :     dotnet ef database update
         ↓
-5. Répéter à chaque évolution du modèle
+5. Utiliser le DbContext pour les opérations CRUD
+        ↓
+6. Répéter à chaque évolution du modèle
 ```
 
 ---
