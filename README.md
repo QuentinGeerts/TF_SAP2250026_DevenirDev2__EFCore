@@ -15,8 +15,9 @@
 7. [Les Migrations](#7-les-migrations)
 8. [Le Seed Data](#8-le-seed-data)
 9. [Les opérations CRUD](#9-les-opérations-crud)
-10. [Le point d'entrée et le menu console](#10-le-point-dentrée-et-le-menu-console)
-11. [Récapitulatif de l'architecture](#11-récapitulatif-de-larchitecture)
+10. [Les Relations entre entités](#10-les-relations-entre-entités)
+11. [Le point d'entrée et le menu console](#11-le-point-dentrée-et-le-menu-console)
+12. [Récapitulatif de l'architecture](#12-récapitulatif-de-larchitecture)
 
 ---
 
@@ -542,7 +543,326 @@ if (film != null)
 
 ---
 
-## 10. Le point d'entrée et le menu console
+## 10. Les Relations entre entités
+
+### Théorie — Les types de relations
+
+Dans une base de données relationnelle, les tables sont rarement isolées. Elles sont liées entre elles par des **relations** (ou associations). EF Core supporte les trois types de relations classiques :
+
+| Relation | Principe | Exemple concret |
+|----------|----------|-----------------|
+| **One-to-One** (1:1) | Une entité A est liée à **exactement une** entité B, et inversement. | Un `User` possède un unique `UserProfile` |
+| **One-to-Many** (1:N) | Une entité A est liée à **plusieurs** entités B, mais chaque B n'appartient qu'à **un seul** A. | Un `Director` réalise **plusieurs** `Film`, mais chaque `Film` n'a qu'**un seul** `Director` |
+| **Many-to-Many** (N:N) | Plusieurs entités A sont liées à plusieurs entités B. | Un `Film` a **plusieurs** `Actor`, et un `Actor` joue dans **plusieurs** `Film` |
+
+### Théorie — Navigation Properties et Foreign Keys
+
+Pour matérialiser une relation en EF Core, on utilise deux concepts :
+
+- **Navigation Property** : Une propriété C# qui permet de « naviguer » d'une entité vers une autre. Elle peut être une référence (un seul objet) ou une collection (`ICollection<T>`, `List<T>`).
+- **Foreign Key** (clé étrangère) : La colonne en base de données qui stocke la référence vers l'autre table. En C#, c'est une propriété de type `Guid`, `int`, etc.
+
+```
+Côté C# (Navigation)          Côté SQL (Foreign Key)
+─────────────────────          ──────────────────────
+film.Director                  Films.DirectorId → Directors.Id
+director.Films                 (pas de colonne, c'est l'inverse)
+```
+
+---
+
+### 10.1. Relation One-to-Many (1:N)
+
+C'est la relation **la plus courante**. Exemple : un réalisateur peut avoir réalisé plusieurs films, mais chaque film n'a qu'un seul réalisateur.
+
+#### Étape 1 — Modifier les entités
+
+**`Entities/Director.cs`** — Ajouter la collection de films :
+
+```csharp
+namespace DemoEFCore.Entities;
+
+public class Director
+{
+    public Guid Id { get; set; }
+    public string Lastname { get; set; } = null!;
+    public string Firstname { get; set; } = null!;
+
+    // Navigation Property — Un réalisateur a PLUSIEURS films
+    public ICollection<Film> Films { get; set; } = new List<Film>();
+}
+```
+
+**`Entities/Film.cs`** — Ajouter la foreign key et la navigation vers le réalisateur :
+
+```csharp
+namespace DemoEFCore.Entities;
+
+public class Film
+{
+    public Guid Id { get; set; }
+    public string Title { get; set; } = null!;
+    public int ReleasedYear { get; set; }
+    public DateTime? CreatedAt { get; set; }
+
+    // Foreign Key — Référence vers le réalisateur
+    public Guid? DirectorId { get; set; }
+
+    // Navigation Property — Chaque film a UN réalisateur
+    public Director? Director { get; set; }
+}
+```
+
+> **`Guid?`** (nullable) : La FK est optionnelle ici — un film peut ne pas encore avoir de réalisateur assigné. Si on veut rendre la relation **obligatoire**, on utilise `Guid` sans le `?`.
+
+#### Étape 2 — Configurer avec Fluent API
+
+**`Configurations/FilmConfiguration.cs`** — Ajouter la configuration de la relation :
+
+```csharp
+// Dans la méthode Configure()
+
+// Relation One-to-Many : Director (1) → Films (N)
+builder.HasOne(f => f.Director)           // Chaque Film a UN Director
+    .WithMany(d => d.Films)               // Ce Director a PLUSIEURS Films
+    .HasForeignKey(f => f.DirectorId)     // La FK est Film.DirectorId
+    .OnDelete(DeleteBehavior.SetNull);    // Si on supprime le Director → FK mise à null
+```
+
+#### Théorie — Les comportements de suppression (`OnDelete`)
+
+| Comportement | Effet quand le parent est supprimé |
+|-------------|-----------------------------------|
+| `Cascade` | Les enfants sont **supprimés** automatiquement |
+| `SetNull` | La FK des enfants est mise à **`NULL`** (nécessite une FK nullable) |
+| `Restrict` | La suppression est **bloquée** si des enfants existent |
+| `NoAction` | Aucune action côté EF Core (délégué à la base de données) |
+
+#### Étape 3 — Créer et appliquer la migration
+
+```bash
+dotnet ef migrations add AddDirectorToFilm
+dotnet ef database update
+```
+
+EF Core génère automatiquement une colonne `DirectorId` dans la table `Films` avec une contrainte `FOREIGN KEY` vers `Directors.Id`.
+
+---
+
+### 10.2. Relation One-to-One (1:1)
+
+Exemple : chaque utilisateur possède un unique profil, et chaque profil appartient à un unique utilisateur.
+
+#### Étape 1 — Créer l'entité dépendante
+
+**`Entities/UserProfile.cs`** :
+
+```csharp
+namespace DemoEFCore.Entities;
+
+public class UserProfile
+{
+    public Guid Id { get; set; }
+    public string? Bio { get; set; }
+    public string? AvatarUrl { get; set; }
+
+    // Foreign Key (aussi clé primaire dans certains cas)
+    public Guid UserId { get; set; }
+
+    // Navigation Property
+    public User User { get; set; } = null!;
+}
+```
+
+**`Entities/User.cs`** — Ajouter la navigation inverse :
+
+```csharp
+namespace DemoEFCore.Entities;
+
+public class User
+{
+    public Guid Id { get; set; }
+    public string Email { get; set; } = null!;
+    public string? Lastname { get; set; }
+    public string? Firstname { get; set; }
+
+    // Navigation Property — Un utilisateur a UN profil
+    public UserProfile? Profile { get; set; }
+}
+```
+
+#### Étape 2 — Configurer avec Fluent API
+
+**`Configurations/UserProfileConfiguration.cs`** :
+
+```csharp
+public class UserProfileConfiguration : IEntityTypeConfiguration<UserProfile>
+{
+    public void Configure(EntityTypeBuilder<UserProfile> builder)
+    {
+        builder.ToTable("UserProfiles");
+        builder.HasKey(up => up.Id);
+
+        // Relation One-to-One : User (1) ↔ UserProfile (1)
+        builder.HasOne(up => up.User)         // Chaque UserProfile a UN User
+            .WithOne(u => u.Profile)          // Ce User a UN UserProfile
+            .HasForeignKey<UserProfile>(up => up.UserId); // La FK est dans UserProfile
+    }
+}
+```
+
+#### Théorie — Qui porte la Foreign Key ?
+
+Dans une relation 1:1, on doit **choisir** quel côté porte la FK. On l'indique avec `HasForeignKey<T>()` où `T` est l'entité qui contient la FK. En général, c'est l'entité **dépendante** (celle qui ne peut pas exister sans l'autre).
+
+---
+
+### 10.3. Relation Many-to-Many (N:N)
+
+Exemple : un film peut avoir plusieurs acteurs, et un acteur peut jouer dans plusieurs films.
+
+#### Théorie — La table de jointure
+
+Une relation N:N ne peut pas être représentée directement en SQL. Il faut une **table de jointure** (aussi appelée table pivot ou table d'association) qui contient les deux FK.
+
+```
+Films ←──── FilmActors ────→ Actors
+ Id          FilmId            Id
+             ActorId
+```
+
+EF Core offre **deux approches** pour gérer le Many-to-Many :
+
+| Approche | Quand l'utiliser |
+|----------|-----------------|
+| **Implicite** (EF Core 5+) | La table de jointure est invisible, EF Core la gère tout seul. Suffisant si on n'a pas besoin de données supplémentaires sur la relation. |
+| **Explicite** | On crée manuellement l'entité de jointure. Nécessaire si on veut ajouter des colonnes à la relation (ex: `Role`, `DateCasting`). |
+
+#### Approche implicite (simple)
+
+**`Entities/Actor.cs`** :
+
+```csharp
+namespace DemoEFCore.Entities;
+
+public class Actor
+{
+    public Guid Id { get; set; }
+    public string Lastname { get; set; } = null!;
+    public string Firstname { get; set; } = null!;
+
+    // Navigation Property — Un acteur joue dans PLUSIEURS films
+    public ICollection<Film> Films { get; set; } = new List<Film>();
+}
+```
+
+**`Entities/Film.cs`** — Ajouter la navigation :
+
+```csharp
+// Ajouter dans la classe Film :
+public ICollection<Actor> Actors { get; set; } = new List<Actor>();
+```
+
+**Configuration Fluent API** :
+
+```csharp
+// Dans FilmConfiguration ou ActorConfiguration
+builder.HasMany(f => f.Actors)
+    .WithMany(a => a.Films);
+// EF Core crée automatiquement la table de jointure "ActorFilm"
+```
+
+#### Approche explicite (avec entité de jointure)
+
+Utile quand on veut stocker des informations supplémentaires sur la relation, par exemple le rôle joué par l'acteur dans le film.
+
+**`Entities/FilmActor.cs`** — L'entité de jointure :
+
+```csharp
+namespace DemoEFCore.Entities;
+
+public class FilmActor
+{
+    public Guid FilmId { get; set; }
+    public Film Film { get; set; } = null!;
+
+    public Guid ActorId { get; set; }
+    public Actor Actor { get; set; } = null!;
+
+    // Donnée supplémentaire sur la relation
+    public string? Role { get; set; }
+}
+```
+
+**Configuration Fluent API** :
+
+```csharp
+public class FilmActorConfiguration : IEntityTypeConfiguration<FilmActor>
+{
+    public void Configure(EntityTypeBuilder<FilmActor> builder)
+    {
+        builder.ToTable("FilmActors");
+
+        // Clé primaire composite (les deux FK ensemble)
+        builder.HasKey(fa => new { fa.FilmId, fa.ActorId });
+
+        // Relation Film (1) → FilmActor (N)
+        builder.HasOne(fa => fa.Film)
+            .WithMany(f => f.FilmActors)
+            .HasForeignKey(fa => fa.FilmId);
+
+        // Relation Actor (1) → FilmActor (N)
+        builder.HasOne(fa => fa.Actor)
+            .WithMany(a => a.FilmActors)
+            .HasForeignKey(fa => fa.ActorId);
+    }
+}
+```
+
+> Avec l'approche explicite, les navigation properties dans `Film` et `Actor` deviennent `ICollection<FilmActor>` au lieu de `ICollection<Film>` / `ICollection<Actor>`.
+
+### Récapitulatif des relations
+
+| Relation | Navigation côté A | Navigation côté B | Configuration Fluent API |
+|----------|------------------|------------------|--------------------------|
+| **1:1** | `B? Prop` | `A Prop` | `HasOne().WithOne().HasForeignKey<B>()` |
+| **1:N** | `ICollection<B>` | `A? Prop` + `Guid? AId` | `HasOne().WithMany().HasForeignKey()` |
+| **N:N (implicite)** | `ICollection<B>` | `ICollection<A>` | `HasMany().WithMany()` |
+| **N:N (explicite)** | `ICollection<AB>` | `ICollection<AB>` | Deux `HasOne().WithMany()` sur l'entité de jointure |
+
+### Théorie — Le Lazy Loading, Eager Loading et Explicit Loading
+
+Quand on accède à une navigation property, EF Core ne charge **pas** automatiquement les données liées. Il existe trois stratégies :
+
+| Stratégie | Comment | Quand l'utiliser |
+|-----------|---------|-----------------|
+| **Eager Loading** | `.Include(f => f.Director)` | On sait à l'avance qu'on aura besoin des données liées |
+| **Explicit Loading** | `context.Entry(film).Reference(f => f.Director).Load()` | On décide au cas par cas, après coup |
+| **Lazy Loading** | Installer un package supplémentaire + propriétés `virtual` | Automatique mais peut causer des problèmes de performance (N+1 queries) |
+
+**Exemple avec Eager Loading (recommandé)** :
+
+```csharp
+// Charger les films AVEC leur réalisateur en une seule requête
+var films = context.Films
+    .Include(f => f.Director)    // JOIN en SQL
+    .OrderByDescending(f => f.ReleasedYear)
+    .ToList();
+
+foreach (var film in films)
+{
+    string directorName = film.Director != null
+        ? $"{film.Director.Firstname} {film.Director.Lastname}"
+        : "Inconnu";
+    Console.WriteLine($"{film.Title} — réalisé par {directorName}");
+}
+```
+
+Sans le `.Include()`, `film.Director` serait toujours `null` même si un `DirectorId` existe en base.
+
+---
+
+## 11. Le point d'entrée et le menu console
 
 ### Le `Program.cs`
 
@@ -593,7 +913,7 @@ Ce pattern est répété à chaque niveau de menu, ce qui permet de revenir au m
 
 ---
 
-## 11. Récapitulatif de l'architecture
+## 12. Récapitulatif de l'architecture
 
 ```
 DemoEFCore/
