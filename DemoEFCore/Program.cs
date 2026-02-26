@@ -1,2 +1,6 @@
-﻿// See https://aka.ms/new-console-template for more information
-Console.WriteLine("Hello, World!");
+﻿using DemoEFCore;
+
+
+using DataContext context = new DataContext();
+
+Menu.AfficherMenu(context);

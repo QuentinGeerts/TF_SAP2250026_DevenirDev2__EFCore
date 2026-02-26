@@ -1,5 +1,4 @@
-﻿using DemoEFCore.Configurations;
-using DemoEFCore.Entities;
+﻿using DemoEFCore.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace DemoEFCore;
@@ -8,7 +7,7 @@ public class DataContext : DbContext
 {
     // DBSet : Table SQL => Collection C#
     public DbSet<Director> Directors { get; set; }
-    public DbSet<Film> Films{ get; set; }
+    public DbSet<Film> Films { get; set; }
     public DbSet<User> Users { get; set; }
 
     // OnConfiguring: Permet de configurer la connexion
