@@ -9,6 +9,7 @@ public class DataContext : DbContext
     public DbSet<Director> Directors { get; set; }
     public DbSet<Film> Films { get; set; }
     public DbSet<User> Users { get; set; }
+    public DbSet<Actor> Actors { get; set; }
     public DbSet<FilmActor> FilmsActors { get; set; }
 
     // OnConfiguring: Permet de configurer la connexion
