@@ -4,6 +4,7 @@ using DemoEFCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DemoEFCore.Migrations
 {
     [DbContext(typeof(DataContext))]
-    partial class DataContextModelSnapshot : ModelSnapshot
+    [Migration("20260226141327_UserOneToOneUserDetails")]
+    partial class UserOneToOneUserDetails
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -41,20 +44,6 @@ namespace DemoEFCore.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Directors", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("5e41c1c9-c2a0-4941-a6e4-c5642c1502cd"),
-                            Firstname = "James",
-                            Lastname = "Cameron"
-                        },
-                        new
-                        {
-                            Id = new Guid("ea269f2e-7c8c-48ad-944c-c9d754303758"),
-                            Firstname = "Quentin",
-                            Lastname = "Geerts"
-                        });
                 });
 
             modelBuilder.Entity("DemoEFCore.Entities.Film", b =>
@@ -68,9 +57,6 @@ namespace DemoEFCore.Migrations
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETDATE()");
 
-                    b.Property<Guid>("DirectorId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<int>("ReleasedYear")
                         .HasColumnType("int");
 
@@ -80,8 +66,6 @@ namespace DemoEFCore.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("DirectorId");
 
                     b.ToTable("Films", null, t =>
                         {
@@ -93,7 +77,6 @@ namespace DemoEFCore.Migrations
                         {
                             Id = new Guid("a1b2c3d4-e5f6-7890-abcd-000000000001"),
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DirectorId = new Guid("ea269f2e-7c8c-48ad-944c-c9d754303758"),
                             ReleasedYear = 1994,
                             Title = "The Shawshank Redemption"
                         },
@@ -101,7 +84,6 @@ namespace DemoEFCore.Migrations
                         {
                             Id = new Guid("a1b2c3d4-e5f6-7890-abcd-000000000002"),
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DirectorId = new Guid("ea269f2e-7c8c-48ad-944c-c9d754303758"),
                             ReleasedYear = 1972,
                             Title = "The Godfather"
                         },
@@ -109,7 +91,6 @@ namespace DemoEFCore.Migrations
                         {
                             Id = new Guid("a1b2c3d4-e5f6-7890-abcd-000000000003"),
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DirectorId = new Guid("5e41c1c9-c2a0-4941-a6e4-c5642c1502cd"),
                             ReleasedYear = 2008,
                             Title = "The Dark Knight"
                         },
@@ -117,7 +98,6 @@ namespace DemoEFCore.Migrations
                         {
                             Id = new Guid("a1b2c3d4-e5f6-7890-abcd-000000000004"),
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DirectorId = new Guid("ea269f2e-7c8c-48ad-944c-c9d754303758"),
                             ReleasedYear = 1994,
                             Title = "Pulp Fiction"
                         },
@@ -125,7 +105,6 @@ namespace DemoEFCore.Migrations
                         {
                             Id = new Guid("a1b2c3d4-e5f6-7890-abcd-000000000005"),
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DirectorId = new Guid("ea269f2e-7c8c-48ad-944c-c9d754303758"),
                             ReleasedYear = 1993,
                             Title = "Schindler's List"
                         },
@@ -133,7 +112,6 @@ namespace DemoEFCore.Migrations
                         {
                             Id = new Guid("a1b2c3d4-e5f6-7890-abcd-000000000006"),
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DirectorId = new Guid("ea269f2e-7c8c-48ad-944c-c9d754303758"),
                             ReleasedYear = 2003,
                             Title = "The Lord of the Rings: The Return of the King"
                         },
@@ -141,7 +119,6 @@ namespace DemoEFCore.Migrations
                         {
                             Id = new Guid("a1b2c3d4-e5f6-7890-abcd-000000000007"),
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DirectorId = new Guid("ea269f2e-7c8c-48ad-944c-c9d754303758"),
                             ReleasedYear = 1994,
                             Title = "Forrest Gump"
                         },
@@ -149,7 +126,6 @@ namespace DemoEFCore.Migrations
                         {
                             Id = new Guid("a1b2c3d4-e5f6-7890-abcd-000000000008"),
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DirectorId = new Guid("ea269f2e-7c8c-48ad-944c-c9d754303758"),
                             ReleasedYear = 2010,
                             Title = "Inception"
                         },
@@ -157,7 +133,6 @@ namespace DemoEFCore.Migrations
                         {
                             Id = new Guid("a1b2c3d4-e5f6-7890-abcd-000000000009"),
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DirectorId = new Guid("5e41c1c9-c2a0-4941-a6e4-c5642c1502cd"),
                             ReleasedYear = 1999,
                             Title = "Fight Club"
                         },
@@ -165,7 +140,6 @@ namespace DemoEFCore.Migrations
                         {
                             Id = new Guid("a1b2c3d4-e5f6-7890-abcd-000000000010"),
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DirectorId = new Guid("ea269f2e-7c8c-48ad-944c-c9d754303758"),
                             ReleasedYear = 1990,
                             Title = "Goodfellas"
                         },
@@ -173,7 +147,6 @@ namespace DemoEFCore.Migrations
                         {
                             Id = new Guid("a1b2c3d4-e5f6-7890-abcd-000000000011"),
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DirectorId = new Guid("ea269f2e-7c8c-48ad-944c-c9d754303758"),
                             ReleasedYear = 1999,
                             Title = "The Matrix"
                         },
@@ -181,7 +154,6 @@ namespace DemoEFCore.Migrations
                         {
                             Id = new Guid("a1b2c3d4-e5f6-7890-abcd-000000000012"),
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DirectorId = new Guid("ea269f2e-7c8c-48ad-944c-c9d754303758"),
                             ReleasedYear = 2014,
                             Title = "Interstellar"
                         },
@@ -189,7 +161,6 @@ namespace DemoEFCore.Migrations
                         {
                             Id = new Guid("a1b2c3d4-e5f6-7890-abcd-000000000013"),
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DirectorId = new Guid("5e41c1c9-c2a0-4941-a6e4-c5642c1502cd"),
                             ReleasedYear = 1995,
                             Title = "Se7en"
                         },
@@ -197,7 +168,6 @@ namespace DemoEFCore.Migrations
                         {
                             Id = new Guid("a1b2c3d4-e5f6-7890-abcd-000000000014"),
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DirectorId = new Guid("ea269f2e-7c8c-48ad-944c-c9d754303758"),
                             ReleasedYear = 1991,
                             Title = "The Silence of the Lambs"
                         },
@@ -205,7 +175,6 @@ namespace DemoEFCore.Migrations
                         {
                             Id = new Guid("a1b2c3d4-e5f6-7890-abcd-000000000015"),
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DirectorId = new Guid("ea269f2e-7c8c-48ad-944c-c9d754303758"),
                             ReleasedYear = 1998,
                             Title = "Saving Private Ryan"
                         },
@@ -213,7 +182,6 @@ namespace DemoEFCore.Migrations
                         {
                             Id = new Guid("a1b2c3d4-e5f6-7890-abcd-000000000016"),
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DirectorId = new Guid("5e41c1c9-c2a0-4941-a6e4-c5642c1502cd"),
                             ReleasedYear = 2000,
                             Title = "Gladiator"
                         },
@@ -221,7 +189,6 @@ namespace DemoEFCore.Migrations
                         {
                             Id = new Guid("a1b2c3d4-e5f6-7890-abcd-000000000017"),
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DirectorId = new Guid("ea269f2e-7c8c-48ad-944c-c9d754303758"),
                             ReleasedYear = 2006,
                             Title = "The Prestige"
                         },
@@ -229,7 +196,6 @@ namespace DemoEFCore.Migrations
                         {
                             Id = new Guid("a1b2c3d4-e5f6-7890-abcd-000000000018"),
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DirectorId = new Guid("ea269f2e-7c8c-48ad-944c-c9d754303758"),
                             ReleasedYear = 2014,
                             Title = "Whiplash"
                         },
@@ -237,7 +203,6 @@ namespace DemoEFCore.Migrations
                         {
                             Id = new Guid("a1b2c3d4-e5f6-7890-abcd-000000000019"),
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DirectorId = new Guid("ea269f2e-7c8c-48ad-944c-c9d754303758"),
                             ReleasedYear = 2019,
                             Title = "Parasite"
                         },
@@ -245,7 +210,6 @@ namespace DemoEFCore.Migrations
                         {
                             Id = new Guid("a1b2c3d4-e5f6-7890-abcd-000000000020"),
                             CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DirectorId = new Guid("5e41c1c9-c2a0-4941-a6e4-c5642c1502cd"),
                             ReleasedYear = 2023,
                             Title = "Oppenheimer"
                         });
@@ -295,17 +259,6 @@ namespace DemoEFCore.Migrations
                     b.ToTable("UserDetails");
                 });
 
-            modelBuilder.Entity("DemoEFCore.Entities.Film", b =>
-                {
-                    b.HasOne("DemoEFCore.Entities.Director", "Director")
-                        .WithMany("Films")
-                        .HasForeignKey("DirectorId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Director");
-                });
-
             modelBuilder.Entity("DemoEFCore.Entities.UserDetails", b =>
                 {
                     b.HasOne("DemoEFCore.Entities.User", null)
@@ -313,11 +266,6 @@ namespace DemoEFCore.Migrations
                         .HasForeignKey("DemoEFCore.Entities.UserDetails", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-                });
-
-            modelBuilder.Entity("DemoEFCore.Entities.Director", b =>
-                {
-                    b.Navigation("Films");
                 });
 
             modelBuilder.Entity("DemoEFCore.Entities.User", b =>

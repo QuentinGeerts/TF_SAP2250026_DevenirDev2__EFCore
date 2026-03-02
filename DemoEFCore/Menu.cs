@@ -2,6 +2,7 @@
 
 
 using DemoEFCore.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace DemoEFCore;
 
@@ -14,6 +15,7 @@ public static class Menu
         {
             Console.Clear();
             Console.WriteLine($"1. Démonstrations sur le CRUD");
+            Console.WriteLine($"2. Démonstrations sur les jointures");
             Console.WriteLine($"0. Quitter");
             Console.WriteLine();
             Console.Write("Entrez votre choix: ");
@@ -24,6 +26,10 @@ public static class Menu
             {
                 case "1":
                     MenuCRUD(context);
+                    break;
+                
+                case "2":
+                    MenuJointures(context);
                     break;
 
                 case "0":
@@ -36,6 +42,79 @@ public static class Menu
                     break;
             }
         }
+    }
+
+    private static void MenuJointures(DataContext context)
+    {
+        bool continuer = true;
+        while (continuer)
+        {
+            Console.Clear();
+            Console.WriteLine($"1. One-To-One");
+            Console.WriteLine($"2. One-To-Many");
+            Console.WriteLine($"3. Many-To-Many");
+            Console.WriteLine($"0. Retour au menu principal");
+            Console.WriteLine();
+            Console.Write("Entrez votre choix: ");
+
+            string choix = Console.ReadLine() ?? "";
+
+            switch (choix)
+            {
+                case "1":
+                    DemoOneToOne(context);
+                    break;
+
+                case "2":
+                    DemoOneToMany(context);
+                    break;
+
+                case "3":
+                    DemoManyToMany(context);
+                    break;
+
+                case "0":
+                    continuer = false;
+                    break;
+
+                default:
+                    Console.WriteLine($"Choix invalid. Appuyez sur Enter pour continuer.");
+                    Console.ReadKey();
+                    break;
+            }
+        }
+    }
+
+    private static void DemoManyToMany(DataContext context)
+    {
+        throw new NotImplementedException();
+    }
+
+    private static void DemoOneToMany(DataContext context)
+    {
+        throw new NotImplementedException();
+    }
+
+    private static void DemoOneToOne(DataContext context)
+    {
+        var user = context.Users
+            .Include(u => u.Details)
+            .FirstOrDefault();
+
+        if (user != null)
+        {
+            Console.WriteLine($"Id: {user.Id}");
+            Console.WriteLine($"Email: {user.Email}");
+            Console.WriteLine($"Lastname: {user.Details?.Lastname}");
+            Console.WriteLine($"Firstname: {user.Details?.Firstname}");
+        }
+        else
+        {
+            Console.WriteLine($"Aucun utilisateur trouvé (ajoutez le directement avec SSMS");
+        }
+
+        Console.WriteLine($"Appuyez sur une touche pour continuer.");
+        Console.ReadKey();
     }
 
     private static void MenuCRUD(DataContext context)
@@ -86,12 +165,77 @@ public static class Menu
 
     private static void DemoDelete(DataContext context)
     {
-        throw new NotImplementedException();
+        Console.Clear();
+        Console.WriteLine($"Démonstration sur le Delete");
+
+        Console.Write($"Entrez l'identifiant d'un film à supprimer :");
+        Guid id;
+        while (!Guid.TryParse(Console.ReadLine(), out id))
+        {
+            Console.WriteLine($"Erreur, réessayez :");
+        }
+
+        if (context.Films.Any(f => f.Id == id))
+        {
+            var film = context.Films.FirstOrDefault(f => f.Id == id)!;
+            context.Remove(film);
+            context.SaveChanges();
+        }
+        else
+        {
+            Console.WriteLine($"Aucun film trouvé.");
+        }
+
+        Console.WriteLine($"Appuyez sur une touche pour continuer.");
+        Console.ReadKey();
     }
 
     private static void DemoUpdate(DataContext context)
     {
-        throw new NotImplementedException();
+        Console.Clear();
+        Console.WriteLine($"Démonstration sur l'Update");
+
+        Console.Write($"Entrez l'identifiant du film à modifier: ");
+        Guid id;
+        while (!Guid.TryParse(Console.ReadLine(), out id))
+        {
+            Console.WriteLine($"Erreur, réessayez :");
+        }
+
+        if (context.Films.Any(f => f.Id == id))
+        {
+            var film = context.Films.FirstOrDefault(f => f.Id == id)!;
+
+            Console.WriteLine("Laissez vide pour garder l'ancien.");
+
+            Console.WriteLine($"Nouveau titre ({film.Title}) :");
+            string nouveauTitre = Console.ReadLine() ?? "";
+
+            Console.WriteLine($"Nouvelle année de sortie ({film.ReleasedYear}) :");
+            string nouvelleAnneeStr = Console.ReadLine() ?? "";
+
+            int nouvelleAnnee = 0;
+            if (nouvelleAnneeStr != "")
+            {
+                while (!int.TryParse(nouvelleAnneeStr, out nouvelleAnnee))
+                {
+                    Console.WriteLine($"Erreur, réessayez: ");
+                }
+            }
+
+            film.Title = nouveauTitre == "" ? film.Title : nouveauTitre;
+            film.ReleasedYear = nouvelleAnneeStr == "" ? film.ReleasedYear : nouvelleAnnee;
+
+            context.SaveChanges();
+
+        }
+        else
+        {
+            Console.WriteLine($"Aucun film trouvé.");
+        }
+
+        Console.WriteLine($"Appuyez sur une touche pour continuer.");
+        Console.ReadKey();
     }
 
     private static void DemoRead(DataContext context)
@@ -154,6 +298,9 @@ public static class Menu
         {
             Console.WriteLine($"Aucun film trouvé sous le nom de '{title}'");
         }
+
+        Console.WriteLine($"Appuyez sur une touche pour continuer.");
+        Console.ReadKey();
     }
 
     private static void ReadAll(DataContext context)
@@ -169,7 +316,7 @@ public static class Menu
 
         foreach (Film film in films)
         {
-            Console.WriteLine($" - {film.Title.PadRight(50)} sorti en {film.ReleasedYear}");
+            Console.WriteLine($" - {film.Id} {film.Title.PadRight(50)} sorti en {film.ReleasedYear}");
         }
 
         Console.WriteLine($"Appuyer sur une touche pour continuer...");
